@@ -33,77 +33,130 @@
 fn main() {
     // Get input (whole pseudo code) and create vector of string from it.
     // TODO: read from file!
-    let src = String::from("( /a. /b. a b ( /t. /f. f ) ) ( /t. /f. t )");
-    let input = src
-        .split_whitespace()
-        .collect::<Vec<&str>>();
+    // let src = String::from("( /a. /b. a b ( /t. /f. f ) ) ( /t. /f. t )");
+    // let src1 = String::from("( \\a. a b )");
+    let src1 = String::from(" ( \\a. a b ( \\t. f ) ) ");
+
+    let input = src1.split_whitespace().collect::<Vec<&str>>();
+    // Переменная input выглядит вот так
+    //["(", "/a.", "/b.", "a", "b", "(", "/t.", "/f.", "f", ")", ")", "(", "/t.", "/f.", "t", ")"]
 
     // Result string containing intepreted list programm
-    let result = translate(input, src.clone());
+    let result = translate(input);
 
     println!("{:?}", result);
 }
-fn translate(collected: Vec<&str>, source: String) -> Result<String, std::io::Error> {
-    let mut result = String::new();
-    let mut global_scope_counter = 0;
+// Анализируется весь список аргументов
+fn translate(source: Vec<&str>) -> String {
+    let mut temp_str = String::new();
 
-    let mut end_of_scope: usize = 0;
-    for (pos, elem) in source.chars().enumerate() {
-        let mut scope_len: usize = 0;
-        if elem == '(' {
-            global_scope_counter += 1;
-            end_of_scope = source
-                .chars()
-                .position(|ch| ch == ')')
-                .expect("Not enough brackets");
-            // Working inside of brackets
-            scope_len = end_of_scope - (pos + 1);
-            // Try to find new brackets in the current brackets scope
-            let new_brackets = match source[pos + 1..end_of_scope]
-                .chars()
-                .position(|ch| ch == '(')
-            {
-                Some(val) => {
-                    // Try to find end of new scope
-                    let new_end = source[val..end_of_scope - 1]
-                        .chars()
-                        .position(|ch| ch == ')')
-                        .expect("Not enough brackets");
-                    // if all is ok then start new recursion
-                    bracket_recursion(&source[val..new_end], &collected);
-                    continue;
-                }
-                None => continue,
-            };
+    // FIXME: исправить повторяющиеся вложения
+    for (pos, elem) in source.iter().enumerate() {
+        // Проверяем на вхождение в скобки
+        if *elem == "(" {
+            temp_str = bracket_recursion(&source[pos + 1..&source.len() - 1]);
+            // FIXME: временное решение
+            break;
         }
-        //
     }
-
-    Ok(result)
+    let result = format!("{}", temp_str);
+    result
 }
 
-fn bracket_recursion(source: &str, collected: &Vec<&str>) -> String {
-    let mut result = String::new();
-    let mut temp_res = String::new();
+// Задумывается, что функция работает только в одной вложенности скобок
+fn bracket_recursion(source: &[&str]) -> String {
+    let mut is_lambda = false;
 
-    // Когда встречается лямбда-функция необходимо собрать её аргументы
-    let mut lamda_comp = false;
-    for (pos, elem) in source.chars().enumerate() {
-        if lamda_comp {}
-        // Если в последовательности есть ещё скобочки, то сразу переходим к ним
-        if elem == '(' {
-            let end = source
-                .chars()
-                .position(|ch| ch == ')')
-                .expect("Not enought brackets");
-            let len = end - (pos + 1);
-            temp_res = bracket_recursion(&source[pos + 1..end], &collected);
-        } else if elem == '\\' {
-            lamda_comp = true;
+    let mut temp_str = String::new();
+    // Строка, полученная из рекурсии
+    // Вставляется в результат после завершения
+    // первой рекурсии
+    let mut rec_str_vec: Vec<&str> = Vec::new();
+
+    // Если есть ещё одно вложение скобок, то переходим к нему
+    let start = match source.iter().position(|e| e == &"(") {
+        Some(p) => p,
+        None => source.len(),
+    };
+
+    let end = match source.iter().position(|e| e == &")") {
+        Some(p) => p,
+        None => source.len(),
+    };
+
+    let mut _temp = String::new();
+    if start != end {
+        _temp = bracket_recursion(&source[start + 1..end]);
+        rec_str_vec.push(&_temp);
+    }
+
+    // Подсчёт аргументов вложенности, считая, что
+    // доп вложенность является одним аргументом
+    let mut arg_count = 0;
+    for elem in source {
+        if elem.contains("(") {
+            arg_count += 1;
+            break;
+        } else if elem.contains("\\") {
+            continue;
+        }
+        arg_count += 1;
+    }
+
+    let mut arg_str = String::new();
+    // FIXME: исправить определение области вложенности
+    for (pos, elem) in source[..start].iter().enumerate() {
+        // Если элемент является лямбда-функцией
+        // то есть начинается со слеша
+        if elem.contains("\\") {
+            let t = elem.chars().enumerate().nth(1).unwrap().1;
+            temp_str.push_str(&format!("{}, ", t));
+            is_lambda = true;
+        } else {
+            if pos == start - 1 {
+                arg_str.push_str(&format!("var({})", elem));
+            } else {
+                arg_str.push_str(&format!("var({}), ", elem));
+            }
+        }
+    }
+
+    let mut result = String::new();
+    if is_lambda {
+        let mut rec_str = String::new();
+        for e in rec_str_vec {
+            rec_str.push_str(&format!("{}", e));
+        }
+
+        if arg_count >= 2 {
+            temp_str.push_str(&format!("app({})", arg_str));
+        } else {
+            temp_str.push_str(&format!("{}", arg_str));
+        }
+
+        if !rec_str.is_empty() {
+            result = format!("lam({}, {})", temp_str, rec_str);
+        } else {
+            result = format!("lam({})", temp_str);
         }
     }
     result
 }
 
 #[test]
-fn test_translate() {}
+fn test_simple() {
+    let test_string = String::from("( \\a. a b )");
+    let iter = test_string.split_whitespace().collect::<Vec<&str>>();
+    let result = translate(iter);
+
+    assert_eq!("lam(a, app(var(a), var(b)))", result)
+}
+
+#[test]
+fn test_complex() {
+    let test = String::from(" ( \\a. a b ( \\t. f ) ) ");
+    let iter = test.split_whitespace().collect::<Vec<&str>>();
+    let result = translate(iter);
+
+    assert_eq!("lam(a, app(var(a), var(b)), lam(t, var(f)))", result);
+}
