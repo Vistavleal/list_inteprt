@@ -34,8 +34,7 @@ use algorythm::*;
 
 fn main() {
     // Get input (whole pseudo code) and create vector of string from it.
-    // TODO: read from file!
-    let src1 = String::from("( /a. /b. a b ( /t. /f. f ) ) ( /t. /f. t )");
+    let src1 = String::from("( \\a. \\b. a b ( \\t. \\f. f ) ) ( \\t. \\f. t )");
     // let src1 = String::from("( \\a. a b )");
     // let src1 = String::from(" ( \\a. a b ( \\t. f ) ) ");
 
@@ -46,7 +45,8 @@ fn main() {
     // Result string containing intepreted list programm
     let result = translate_lisp(input);
 
-    println!("{:?}", result);
+    println!("Source: {}", src1);
+    println!("Result: {}", result);
 }
 
 #[test]
@@ -65,4 +65,22 @@ fn test_complex() {
     let result = translate_lisp(iter);
 
     assert_eq!("lam(a, app(var(a), var(b)), lam(t, var(f)))", result);
+}
+
+#[test]
+fn test_multiple_lambda() {
+    let test = String::from(" ( \\a. \\b. \\f. \\t. d c ) ");
+    let iter = test.split_whitespace().collect::<Vec<&str>>();
+    let result = translate_lisp(iter);
+
+    assert_eq!("lam(a, lam(b, lam(f, lam(t, app(var(d), var(c))))))", result);
+}
+
+#[test]
+fn test_complex_multiple_lambda() {
+    let test = String::from(" ( \\a. \\b. \\f. \\t. d c ) ( \\a. \\b. \\f. \\t. d c ) ");
+    let iter = test.split_whitespace().collect::<Vec<&str>>();
+    let result = translate_lisp(iter);
+
+    assert_eq!("lam(a, lam(b, lam(f, lam(t, app(var(d), var(c)))))), lam(a, lam(b, lam(f, lam(t, app(var(d), var(c))))))", result);
 }
